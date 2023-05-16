@@ -32,7 +32,8 @@ public class Program {
         }
 
         foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
-            Directory.SetCurrentDirectory(directory);
+            string parentFolder = directory;
+            Directory.SetCurrentDirectory(directory); // Set new root
             if (getFileCount() >= 1) {
                 DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
                 FileInfo[] files = dir.GetFiles();
@@ -43,6 +44,7 @@ public class Program {
                     File.AppendAllText(checksumFile, CalculateMD5(fileName) + "  " + fileName);
                 }
             }
+            Directory.SetCurrentDirectory(parentFolder); // Go back to the original root
         }
     }
 }
