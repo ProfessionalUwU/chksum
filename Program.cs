@@ -5,7 +5,7 @@
         Console.WriteLine("Starting the checksum process.");
         Console.ResetColor();
 
-        chksum.doTheThing();
+        Chksum.doTheThing();
 
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine("Checksum process finished");

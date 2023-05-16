@@ -2,7 +2,7 @@
 // Check if any file is in there
 // If there is a file. Calculate md5sum > filename.md5
 // If there is no file. Repeat
-public class chksum {
+public class Chksum {
     
     // int getDirectoryCount() {
     //     int folderCount = Directory.GetDirectories(Directory.GetCurrentDirectory()).Length; // Get folder count in current directory
@@ -47,4 +47,10 @@ public class chksum {
             doTheThing();
         }
     }
+
+    public static int getTotalFileCount() {
+        int totalFileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories).Length;
+        return totalFileCount - 1; // Remove the program from the totalFileCount
+    }
+    
 }
