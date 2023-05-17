@@ -48,9 +48,32 @@ public class Chksum {
         }
     }
 
-    public static int getTotalFileCount() {
+    private static int getTotalFileCount() {
         int totalFileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories).Length;
         return totalFileCount - 1; // Remove the program from the totalFileCount
+    }
+
+    public static void countAllMd5Checksums() {
+        int totalMD5FileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*.md5", SearchOption.AllDirectories).Length;
+        Console.WriteLine("There are " + totalMD5FileCount + " md5 checksums");
+    }
+
+    public static void deleteAllMd5Checksums() {
+        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
+            Directory.SetCurrentDirectory(directory); // Set new root
+            if (getFileCount() >= 1) {
+                DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+                FileInfo[] files = dir.GetFiles();
+                foreach (FileInfo file in files) {
+                    string fileName = file.Name;
+                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+                    string checksumFile = Directory.GetCurrentDirectory() + "/" + fileNameWithoutExtension + ".md5";
+                    File.Delete(checksumFile);
+                    Console.WriteLine("Deleted " + checksumFile);
+                }
+            }
+            deleteAllMd5Checksums();
+        }
     }
     
 }
