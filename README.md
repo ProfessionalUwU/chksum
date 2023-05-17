@@ -25,13 +25,13 @@ pacman -S dotnet-runtime dotnet-sdk
 Build project
 
 ```bash
-dotnet build chksum.csproj 
+dotnet build chksum.csproj
 ```
 
 Publish project
 
 ```bash
-dotnet publish --configuration Release --arch x64 --use-current-runtime --self-contained 
+dotnet publish --configuration Release chksum.csproj
 ```
 
 Go to the publish folder
