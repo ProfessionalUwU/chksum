@@ -5,7 +5,7 @@
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("Please specify an option.");
             Console.ResetColor();
-            Console.WriteLine("Options are: checksum, countmd5, deletemd5");
+            Console.WriteLine("Options are: checksum, countmd5, deletemd5, compareChecksums");
         } else {
             switch(args[0]) {
             case "checksum":
@@ -40,6 +40,9 @@
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Deleted all md5 checksum files.");
                 Console.ResetColor();
+                break;
+            case "compareChecksums":
+                Chksum.compareChecksums();
                 break;
             default:
                 break;

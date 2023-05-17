@@ -75,5 +75,40 @@ public class Chksum {
             deleteAllMd5Checksums();
         }
     }
+
+    public static void compareChecksums() {
+        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
+            Directory.SetCurrentDirectory(directory); // Set new root
+            if (getFileCount() >= 1) {
+                DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+                FileInfo[] files = dir.GetFiles();
+                // files.ToList().ForEach(i => Console.WriteLine(i.ToString())); // Print all files in files array
+                foreach (FileInfo file in files) {
+                    string fileName = file.Name;
+                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+                    string checksumFile = Directory.GetCurrentDirectory() + "/" + fileNameWithoutExtension + ".md5";
+                    string fileMd5Checksum = fileNameWithoutExtension + ".md5";
+                    if (File.Exists(fileMd5Checksum)) {
+                        string newFileChecksum = CalculateMD5(fileName) + "  " + fileName;
+                        string existingFileChecksum = File.ReadAllText(fileMd5Checksum);
+                        string newFileName = newFileChecksum.Substring(34);
+                        string existingFileName = existingFileChecksum.Substring(34);
+                        if (newFileChecksum.Equals(existingFileChecksum)) {
+                            Console.WriteLine(newFileName + " and " + existingFileName + " are the same.");
+                        } else {
+                            Console.WriteLine(newFileName + " and " + existingFileName + " are not the same.");
+                            Console.WriteLine("The checksum of " + newFileName + " is " + newFileChecksum);
+                            Console.WriteLine("The checksum of the already exting file " + existingFileName + " is " + existingFileChecksum);
+                            // TODO Tell the user to check which file is the correct one
+                        }
+                    } else {
+                        File.AppendAllText(checksumFile, CalculateMD5(fileName) + "  " + fileName);
+                        Console.WriteLine("Calculated checksum for: " + checksumFile);
+                    }
+                }
+            }
+            compareChecksums();
+        }
+    }
     
 }
