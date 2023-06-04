@@ -1,0 +1,26 @@
+# Remove the line below if you want to inherit .editorconfig settings from higher directories
+root = true
+
+# C# files
+[*.cs]
+
+# Indentation and spacing
+indent_size = 4
+indent_style = space
+tab_width = 4
+
+# Naming Conventions
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# New line preferences
+csharp_new_line_before_open_brace = none
+csharp_new_line_before_else = false
+csharp_new_line_before_catch = false
+csharp_new_line_before_finally = false
+
+# Wrapping preferences
+csharp_preserve_single_line_statements = true
+csharp_preserve_single_line_blocks = true
+
+# Switch case
+csharp_indent_case_contents = true

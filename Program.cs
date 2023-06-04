@@ -1,15 +1,19 @@
 ﻿public class Program {
     static void Main(string[] args) {
 
+        Console.ForegroundColor = ConsoleColor.Red;
         if (args.Length == 0) {
-            Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("Please specify an option.");
-            Console.ResetColor();
-            Console.WriteLine("Options are: checksum, countmd5, deletemd5, compareChecksums");
-        } else {
-            switch(args[0]) {
+            PrintAvailableOptions();
+            return;
+        } else if (args.Length > 1) {
+            Console.WriteLine("Too many options.");
+            return;
+        }
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        switch (args[0]) {
             case "checksum":
-                Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Starting the checksum process.");
                 Console.ResetColor();
 
@@ -17,10 +21,8 @@
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Checksum process finished");
-                Console.ResetColor();
                 break;
             case "countmd5":
-                Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Counting md5 checksum files.");
                 Console.ResetColor();
 
@@ -28,10 +30,8 @@
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Finished counting all md5 checksum files.");
-                Console.ResetColor();
                 break;
             case "deletemd5":
-                Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Deleting all md5 checksum files.");
                 Console.ResetColor();
 
@@ -39,15 +39,38 @@
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Deleted all md5 checksum files.");
-                Console.ResetColor();
                 break;
             case "compareChecksums":
+                Console.WriteLine("Comparing all md5 checksum files. If there is none, creating one.");
+                Console.ResetColor();
+
                 Chksum.compareChecksums();
                 break;
-            default:
+            case "help":
+                PrintAvailableOptions();
                 break;
-            }
+            default:
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Invalid option. Maybe you mistyped it?");
+                PrintAvailableOptions();
+                break;
         }
+    }
 
+    static void PrintAvailableOptions() {
+        String[] options = {
+            "checksum",
+            "countmd5",
+            "deletemd5",
+            "compareChecksums",
+            "help"
+        };
+
+        Console.ResetColor();
+        Console.WriteLine("usage: chksum [option]");
+        Console.WriteLine("Here is a list of all available options:");
+        foreach (String option in options) {
+            Console.WriteLine("\t" + option);
+        }
     }
 }
