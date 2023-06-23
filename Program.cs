@@ -1,4 +1,4 @@
-﻿public class Program {
+public class Program {
     static void Main(string[] args) {
 
         Console.ForegroundColor = ConsoleColor.Red;
@@ -10,6 +10,8 @@
             Console.WriteLine("Too many options.");
             return;
         }
+
+        Chksum.getBaseDir();
 
         Console.ForegroundColor = ConsoleColor.Green;
         switch (args[0]) {
@@ -46,6 +48,9 @@
 
                 Chksum.compareChecksums();
                 break;
+            case "createDB":
+                Chksum.initializeDB();
+                break;
             case "help":
                 PrintAvailableOptions();
                 break;
@@ -63,6 +68,7 @@
             "countmd5",
             "deletemd5",
             "compareChecksums",
+            "createDB",
             "help"
         };
 
