@@ -1,10 +1,7 @@
-using Microsoft.Data.Sqlite;
-
 // Go into folder
 // Check if any file is in there
 // If there is a file. Calculate md5sum > filename.md5
 // If there is no file. Repeat
-
 public class Chksum {
     
     // int getDirectoryCount() {
@@ -21,30 +18,6 @@ public class Chksum {
     //     string parentFolder = Directory.GetParent(Directory.GetCurrentDirectory()).ToString(); // Get parent folder of current directory
     //     return parentFolder;
     // }
-
-    public static string DatabaseRoot { get; set; }
-    public static void getBaseDir() {
-        DatabaseRoot = AppDomain.CurrentDomain.BaseDirectory;
-    }
-    
-    public static void initializeDB() {
-        using (var connection = new SqliteConnection("Data Source=chksum.db")) {
-            connection.Open();
-
-            var command = connection.CreateCommand();
-            command.CommandText =
-            @"
-                CREATE TABLE file (
-                    filehash TEXT NOT NULL PRIMARY KEY,
-                    filename TEXT NOT NULL,
-                    pathtofile TEXT NOT NULL,
-                    artist TEXT,
-                    playbacklength INTEGER
-                );
-            ";
-            command.ExecuteNonQuery();
-        }
-    }
 
     private static string CalculateMD5(string filename) {
         using (var md5 = System.Security.Cryptography.MD5.Create()) {
@@ -63,24 +36,10 @@ public class Chksum {
                 FileInfo[] files = dir.GetFiles();
                 foreach (FileInfo file in files) {
                     string fileName = file.Name;
-                    string absolutePathToFile = Path.GetFullPath(fileName);
-                    string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                    string fileHash = CalculateMD5(fileName);
-
-                    using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
-                        connection.Open();
-
-                        var command = connection.CreateCommand();
-                        command.CommandText =
-                        @"
-                            INSERT INTO file (filehash, filename, pathtofile)
-                            VALUES ($filehash, $filename, $pathtofile)
-                        ";
-                        command.Parameters.AddWithValue("$filehash", fileHash);
-                        command.Parameters.AddWithValue("$filename", fileName);
-                        command.Parameters.AddWithValue("$pathtofile", pathToFile);
-                        command.ExecuteNonQuery();
-                    }
+                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+                    string checksumFile = Directory.GetCurrentDirectory() + "/" + fileNameWithoutExtension + ".md5";
+                    File.AppendAllText(checksumFile, CalculateMD5(fileName) + "  " + fileName);
+                    Console.WriteLine(checksumFile);
                 }
             }
             doTheThing();
