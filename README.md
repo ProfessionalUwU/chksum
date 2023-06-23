@@ -7,7 +7,7 @@ Checksums every file under the current directory
 Clone the project
 
 ```bash
-git clone http://192.168.0.69:3000/ProfessionalUwU/chksum.git
+git clone https://gitea.hopeless-cloud.xyz/ProfessionalUwU/chksum.git
 ```
 
 Go to the project directory
