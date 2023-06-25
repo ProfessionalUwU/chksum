@@ -73,34 +73,34 @@ public class ChksumUtils {
 
     public void doTheThing() {
         foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
-                Directory.SetCurrentDirectory(directory); // Set new root
-                if (getFileCount() >= 1) {
-                    DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
-                    FileInfo[] files = dir.GetFiles();
-                    foreach (FileInfo file in files) {
-                        string fileName = file.Name;
-                        string absolutePathToFile = Path.GetFullPath(fileName);
-                        string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                        string fileHash = CalculateMD5(fileName);
+            Directory.SetCurrentDirectory(directory); // Set new root
+            if (getFileCount() >= 1) {
+                DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+                FileInfo[] files = dir.GetFiles();
+                foreach (FileInfo file in files) {
+                    string fileName = file.Name;
+                    string absolutePathToFile = Path.GetFullPath(fileName);
+                    string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
+                    string fileHash = CalculateMD5(fileName);
 
-                        if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExists(fileHash, fileName) == false) {
-                            connection.Open();
+                    if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExists(fileHash, fileName) == false) {
+                        connection.Open();
 
-                            var command = connection.CreateCommand();
-                            command.CommandText =
-                            @"
-                        INSERT INTO file (filehash, filename, pathtofile)
-                        VALUES ($filehash, $filename, $pathtofile)
+                        var command = connection.CreateCommand();
+                        command.CommandText =
+                        @"
+                            INSERT INTO file (filehash, filename, pathtofile)
+                            VALUES ($filehash, $filename, $pathtofile)
                         ";
-                            command.Parameters.AddWithValue("$filehash", fileHash);
-                            command.Parameters.AddWithValue("$filename", fileName);
-                            command.Parameters.AddWithValue("$pathtofile", pathToFile);
-                            command.ExecuteNonQuery();
-                        }
+                        command.Parameters.AddWithValue("$filehash", fileHash);
+                        command.Parameters.AddWithValue("$filename", fileName);
+                        command.Parameters.AddWithValue("$pathtofile", pathToFile);
+                        command.ExecuteNonQuery();
                     }
                 }
-                doTheThing();
             }
+            doTheThing();
+        }
     }
 
     private bool checkIfFileAlreadyExists(string fileHash, string pathToFile) {
