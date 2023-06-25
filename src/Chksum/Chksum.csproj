@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Chksum.Tests\Chksum.Tests.csproj" />
+    <EmbeddedResource Include="Libraries/libe_sqlite3.so" />
   </ItemGroup>
 
   <PropertyGroup>

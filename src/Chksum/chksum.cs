@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.Data.Sqlite;
 namespace Chksum.Utils;
 public class ChksumUtils {
@@ -17,9 +18,28 @@ public class ChksumUtils {
     //     return parentFolder;
     // }
 
-    public string DatabaseRoot { get; set; }
+    public string DatabaseRoot { get; set; } = string.Empty;
     public void getBaseDir() {
         DatabaseRoot = AppDomain.CurrentDomain.BaseDirectory;
+    }
+
+    public string libraryPath { get; set; } = string.Empty;
+    public void ExtractEmbeddedLibrary() {
+        libraryPath = Path.Combine(DatabaseRoot, "libe_sqlite3.so");
+
+        using (Stream? resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Chksum.Libraries.libe_sqlite3.so")) {
+            if (resourceStream != null) {
+                byte[] buffer = new byte[resourceStream.Length];
+                resourceStream.Read(buffer, 0, buffer.Length);
+                File.WriteAllBytes(libraryPath, buffer);
+            } else {
+                throw new Exception(libraryPath + " could not be loaded");
+            }
+        }
+    }
+
+    public void cleanup() {
+        File.Delete(libraryPath);
     }
 
     public void initializeDB() {

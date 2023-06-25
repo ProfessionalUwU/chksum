@@ -17,6 +17,8 @@ public class Program {
 
         utils.getBaseDir();
 
+        utils.ExtractEmbeddedLibrary();
+
         Console.ForegroundColor = ConsoleColor.Green;
         switch (args[0]) {
             case "checksum":
@@ -64,6 +66,8 @@ public class Program {
                 PrintAvailableOptions();
                 break;
         }
+
+        utils.cleanup();
     }
 
     static void PrintAvailableOptions() {
