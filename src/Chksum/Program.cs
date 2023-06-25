@@ -1,3 +1,6 @@
+using System;
+using Chksum.Utils;
+
 public class Program {
     static void Main(string[] args) {
 
@@ -11,7 +14,9 @@ public class Program {
             return;
         }
 
-        Chksum.getBaseDir();
+        ChksumUtils utils = new ChksumUtils();
+
+        utils.getBaseDir();
 
         Console.ForegroundColor = ConsoleColor.Green;
         switch (args[0]) {
@@ -19,7 +24,7 @@ public class Program {
                 Console.WriteLine("Starting the checksum process.");
                 Console.ResetColor();
 
-                Chksum.doTheThing();
+                utils.doTheThing();
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Checksum process finished");
@@ -28,7 +33,7 @@ public class Program {
                 Console.WriteLine("Counting md5 checksum files.");
                 Console.ResetColor();
 
-                Chksum.countAllMd5Checksums();
+                utils.countAllMd5Checksums();
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Finished counting all md5 checksum files.");
@@ -37,7 +42,7 @@ public class Program {
                 Console.WriteLine("Deleting all md5 checksum files.");
                 Console.ResetColor();
 
-                Chksum.deleteAllMd5Checksums();
+                utils.deleteAllMd5Checksums();
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Deleted all md5 checksum files.");
@@ -46,10 +51,10 @@ public class Program {
                 Console.WriteLine("Comparing all md5 checksum files. If there is none, creating one.");
                 Console.ResetColor();
 
-                Chksum.compareChecksums();
+                utils.compareChecksums();
                 break;
             case "createDB":
-                Chksum.initializeDB();
+                utils.initializeDB();
                 break;
             case "help":
                 PrintAvailableOptions();

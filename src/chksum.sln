@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chksum", "Chksum\Chksum.csproj", "{BBC56294-03CF-42E0-A838-75AF41EEE32B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chksum.Tests", "Chksum.Tests\Chksum.Tests.csproj", "{239727BC-7124-4985-A6F3-2700295AA06F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BBC56294-03CF-42E0-A838-75AF41EEE32B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BBC56294-03CF-42E0-A838-75AF41EEE32B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BBC56294-03CF-42E0-A838-75AF41EEE32B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BBC56294-03CF-42E0-A838-75AF41EEE32B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{239727BC-7124-4985-A6F3-2700295AA06F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{239727BC-7124-4985-A6F3-2700295AA06F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{239727BC-7124-4985-A6F3-2700295AA06F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{239727BC-7124-4985-A6F3-2700295AA06F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

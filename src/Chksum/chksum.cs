@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using Microsoft.Data.Sqlite;
 
 // Go into folder
@@ -5,14 +7,15 @@ using Microsoft.Data.Sqlite;
 // If there is a file. Calculate md5sum > filename.md5
 // If there is no file. Repeat
 
-public class Chksum {
-    
+namespace Chksum.Utils;
+public class ChksumUtils {
+
     // int getDirectoryCount() {
     //     int folderCount = Directory.GetDirectories(Directory.GetCurrentDirectory()).Length; // Get folder count in current directory
     //     return folderCount;
     // }
 
-    private static int getFileCount() {
+    private int getFileCount() {
         int fileCount = Directory.GetFiles(Directory.GetCurrentDirectory()).Length; // Get file count in current directory
         return fileCount;
     }
@@ -22,31 +25,44 @@ public class Chksum {
     //     return parentFolder;
     // }
 
-    public static string DatabaseRoot { get; set; }
-    public static void getBaseDir() {
+    public string DatabaseRoot { get; set; }
+    public void getBaseDir() {
         DatabaseRoot = AppDomain.CurrentDomain.BaseDirectory;
     }
-    
-    public static void initializeDB() {
-        using (var connection = new SqliteConnection("Data Source=chksum.db")) {
-            connection.Open();
 
+    public void initializeDB() {
+        if (!File.Exists("chksum.db")) {
+            using (var connection = new SqliteConnection("Data Source=chksum.db")) {
+                connection.Open();
+
+                var command = connection.CreateCommand();
+                command.CommandText =
+                @"
+                    CREATE TABLE file (
+                        filehash TEXT NOT NULL PRIMARY KEY,
+                        filename TEXT NOT NULL,
+                        pathtofile TEXT NOT NULL,
+                        artist TEXT,
+                        playbacklength INTEGER
+                    );
+                ";
+                command.ExecuteNonQuery();
+            }
+        }
+    }
+
+    public void cleanDB() {
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db")) {
             var command = connection.CreateCommand();
             command.CommandText =
             @"
-                CREATE TABLE file (
-                    filehash TEXT NOT NULL PRIMARY KEY,
-                    filename TEXT NOT NULL,
-                    pathtofile TEXT NOT NULL,
-                    artist TEXT,
-                    playbacklength INTEGER
-                );
+                vacuum;
             ";
             command.ExecuteNonQuery();
         }
     }
 
-    private static string CalculateMD5(string filename) {
+    private string CalculateMD5(string filename) {
         using (var md5 = System.Security.Cryptography.MD5.Create()) {
             using (var stream = File.OpenRead(filename)) {
                 var hash = md5.ComputeHash(stream);
@@ -55,49 +71,79 @@ public class Chksum {
         }
     }
 
-    public static void doTheThing() {
-        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
-            Directory.SetCurrentDirectory(directory); // Set new root
-            if (getFileCount() >= 1) {
-                DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
-                FileInfo[] files = dir.GetFiles();
-                foreach (FileInfo file in files) {
-                    string fileName = file.Name;
-                    string absolutePathToFile = Path.GetFullPath(fileName);
-                    string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                    string fileHash = CalculateMD5(fileName);
+    public void doTheThing() {
+        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
+                Directory.SetCurrentDirectory(directory); // Set new root
+                if (getFileCount() >= 1) {
+                    DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+                    FileInfo[] files = dir.GetFiles();
+                    foreach (FileInfo file in files) {
+                        string fileName = file.Name;
+                        string absolutePathToFile = Path.GetFullPath(fileName);
+                        string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
+                        string fileHash = CalculateMD5(fileName);
 
-                    using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
-                        connection.Open();
+                        if (checkIfFileAlreadyExists(fileHash, fileName) == false) {
+                            connection.Open();
 
-                        var command = connection.CreateCommand();
-                        command.CommandText =
-                        @"
+                            var command = connection.CreateCommand();
+                            command.CommandText =
+                            @"
                             INSERT INTO file (filehash, filename, pathtofile)
                             VALUES ($filehash, $filename, $pathtofile)
-                        ";
-                        command.Parameters.AddWithValue("$filehash", fileHash);
-                        command.Parameters.AddWithValue("$filename", fileName);
-                        command.Parameters.AddWithValue("$pathtofile", pathToFile);
-                        command.ExecuteNonQuery();
+                            ";
+                            command.Parameters.AddWithValue("$filehash", fileHash);
+                            command.Parameters.AddWithValue("$filename", fileName);
+                            command.Parameters.AddWithValue("$pathtofile", pathToFile);
+                            command.ExecuteNonQuery();
+                        }
                     }
                 }
+                doTheThing();
             }
-            doTheThing();
+    }
+
+    private bool checkIfFileAlreadyExists(string fileHash, string fileName) {
+        string filehash = string.Empty;
+        string filename = string.Empty;
+
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
+            connection.Open();
+
+            var command = connection.CreateCommand();
+            command.CommandText =
+            @"
+                SELECT filehash, filename FROM file WHERE filehash = $filehash
+            ";
+            command.Parameters.AddWithValue("$filehash", fileHash);
+
+            using (var reader = command.ExecuteReader()) {
+                while (reader.Read()) {
+                    filehash = reader.GetString(0);
+                    filename = reader.GetString(1);
+                }
+            }
+        }
+
+        if (fileHash == filehash) {
+            Console.WriteLine($"Duplicate files found: {fileName} with the hash {fileHash} is identical to {filename} with the hash {filehash}");
+            return true;
+        } else {
+            return false;
         }
     }
 
-    private static int getTotalFileCount() {
+    private int getTotalFileCount() {
         int totalFileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories).Length;
         return totalFileCount - 1; // Remove the program from the totalFileCount
     }
 
-    public static void countAllMd5Checksums() {
+    public void countAllMd5Checksums() {
         int totalMD5FileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*.md5", SearchOption.AllDirectories).Length;
         Console.WriteLine("There are " + totalMD5FileCount + " md5 checksums");
     }
 
-    public static void deleteAllMd5Checksums() {
+    public void deleteAllMd5Checksums() {
         foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
             Directory.SetCurrentDirectory(directory); // Set new root
             if (getFileCount() >= 1) {
@@ -115,7 +161,7 @@ public class Chksum {
         }
     }
 
-    public static void compareChecksums() {
+    public void compareChecksums() {
         foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
             Directory.SetCurrentDirectory(directory); // Set new root
             if (getFileCount() >= 1) {
