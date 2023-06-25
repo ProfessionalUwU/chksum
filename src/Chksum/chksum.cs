@@ -1,12 +1,4 @@
-using System;
-using System.IO;
 using Microsoft.Data.Sqlite;
-
-// Go into folder
-// Check if any file is in there
-// If there is a file. Calculate md5sum > filename.md5
-// If there is no file. Repeat
-
 namespace Chksum.Utils;
 public class ChksumUtils {
 

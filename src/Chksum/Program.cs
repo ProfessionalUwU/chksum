@@ -1,4 +1,3 @@
-using System;
 using Chksum.Utils;
 
 public class Program {

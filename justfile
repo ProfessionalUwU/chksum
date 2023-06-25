@@ -20,7 +20,7 @@ build:
     @dotnet build src/{{uppercase_project_name}}/{{uppercase_project_name}}.csproj
     @dotnet build src/{{uppercase_project_name}}.Tests/{{uppercase_project_name}}.Tests.csproj
 
-publish: format
+publish:
     @dotnet publish --configuration Release src/{{uppercase_project_name}}/{{uppercase_project_name}}.csproj
 
 format:
