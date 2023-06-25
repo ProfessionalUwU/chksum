@@ -83,15 +83,15 @@ public class ChksumUtils {
                         string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
                         string fileHash = CalculateMD5(fileName);
 
-                        if (checkIfFileAlreadyExists(fileHash, fileName) == false) {
+                        if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExists(fileHash, fileName) == false) {
                             connection.Open();
 
                             var command = connection.CreateCommand();
                             command.CommandText =
                             @"
-                            INSERT INTO file (filehash, filename, pathtofile)
-                            VALUES ($filehash, $filename, $pathtofile)
-                            ";
+                        INSERT INTO file (filehash, filename, pathtofile)
+                        VALUES ($filehash, $filename, $pathtofile)
+                        ";
                             command.Parameters.AddWithValue("$filehash", fileHash);
                             command.Parameters.AddWithValue("$filename", fileName);
                             command.Parameters.AddWithValue("$pathtofile", pathToFile);
@@ -103,9 +103,9 @@ public class ChksumUtils {
             }
     }
 
-    private bool checkIfFileAlreadyExists(string fileHash, string fileName) {
+    private bool checkIfFileAlreadyExists(string fileHash, string pathToFile) {
         string filehash = string.Empty;
-        string filename = string.Empty;
+        string pathtofile = string.Empty;
 
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             connection.Open();
@@ -113,23 +113,62 @@ public class ChksumUtils {
             var command = connection.CreateCommand();
             command.CommandText =
             @"
-                SELECT filehash, filename FROM file WHERE filehash = $filehash
+                SELECT filehash, pathtofile FROM file WHERE filehash = $filehash
             ";
             command.Parameters.AddWithValue("$filehash", fileHash);
 
             using (var reader = command.ExecuteReader()) {
                 while (reader.Read()) {
                     filehash = reader.GetString(0);
-                    filename = reader.GetString(1);
+                    pathtofile = reader.GetString(1);
                 }
             }
         }
 
         if (fileHash == filehash) {
-            Console.WriteLine($"Duplicate files found: {fileName} with the hash {fileHash} is identical to {filename} with the hash {filehash}");
+            Console.WriteLine($"Duplicate files found: {pathToFile} with the hash {fileHash} is identical to {pathtofile} with the hash {filehash}");
             return true;
         } else {
             return false;
+        }
+    }
+
+    private bool checkIfFileMovedAndUpdatePathToFile(string fileHash, string fileName, string pathToFile) {
+        string pathtofile = string.Empty;
+
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
+            connection.Open();
+
+            var command = connection.CreateCommand();
+            command.CommandText =
+            @"
+                SELECT pathtofile FROM file WHERE filehash = $filehash
+            ";
+            command.Parameters.AddWithValue("$filehash", fileHash);
+
+            using (var reader = command.ExecuteReader()) {
+                while (reader.Read()) {
+                    pathtofile = reader.GetString(0);
+                }
+            }
+
+            if (pathToFile != pathtofile && pathtofile != "") {
+                var command2 = connection.CreateCommand();
+                command2.CommandText =
+                @"
+                    UPDATE file
+                    SET pathtofile = $newpathtofile
+                    WHERE filehash = $filehash
+                ";
+                command2.Parameters.AddWithValue("$newpathtofile", pathToFile);
+                command2.Parameters.AddWithValue("$filehash", fileHash);
+                command2.ExecuteNonQuery();
+
+                Console.WriteLine($"File moved: {fileName} was previously at {pathtofile} but is now at {pathToFile}");
+                return true;
+            } else {
+                return false;
+            }
         }
     }
 
