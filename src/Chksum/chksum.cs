@@ -3,20 +3,10 @@ using Microsoft.Data.Sqlite;
 namespace Chksum.Utils;
 public class ChksumUtils {
 
-    // int getDirectoryCount() {
-    //     int folderCount = Directory.GetDirectories(Directory.GetCurrentDirectory()).Length; // Get folder count in current directory
-    //     return folderCount;
-    // }
-
     private int getFileCount() {
         int fileCount = Directory.GetFiles(Directory.GetCurrentDirectory()).Length; // Get file count in current directory
         return fileCount;
     }
-
-    // string getParentFolder() {
-    //     string parentFolder = Directory.GetParent(Directory.GetCurrentDirectory()).ToString(); // Get parent folder of current directory
-    //     return parentFolder;
-    // }
 
     public string DatabaseRoot { get; set; } = string.Empty;
     public void getBaseDir() {
@@ -38,28 +28,26 @@ public class ChksumUtils {
         }
     }
 
-    public void cleanup() {
-        File.Delete(libraryPath);
-    }
-
     public void initializeDB() {
-        if (!File.Exists("chksum.db")) {
-            using (var connection = new SqliteConnection("Data Source=chksum.db")) {
-                connection.Open();
+        if (File.Exists("chksum.db")) {
+            return;
+        }
 
-                var command = connection.CreateCommand();
-                command.CommandText =
-                @"
-                    CREATE TABLE file (
-                        filehash TEXT NOT NULL PRIMARY KEY,
-                        filename TEXT NOT NULL,
-                        pathtofile TEXT NOT NULL,
-                        artist TEXT,
-                        playbacklength INTEGER
-                    );
-                ";
-                command.ExecuteNonQuery();
-            }
+        using (var connection = new SqliteConnection("Data Source=chksum.db")) {
+            connection.Open();
+
+            var command = connection.CreateCommand();
+            command.CommandText =
+            @"
+                CREATE TABLE file (
+                filehash TEXT NOT NULL PRIMARY KEY,
+                filename TEXT NOT NULL,
+                pathtofile TEXT NOT NULL,
+                artist TEXT,
+                playbacklength INTEGER
+                );
+            ";
+            command.ExecuteNonQuery();
         }
     }
 
@@ -84,7 +72,8 @@ public class ChksumUtils {
     }
 
     public void doTheThing() {
-        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
+        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) 
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             Directory.SetCurrentDirectory(directory); // Set new root
             if (getFileCount() >= 1) {
                 DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
@@ -118,6 +107,7 @@ public class ChksumUtils {
     private bool checkIfFileAlreadyExists(string fileHash, string pathToFile) {
         string filehash = string.Empty;
         string pathtofile = string.Empty;
+        bool doesExist = false;
 
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             connection.Open();
@@ -138,15 +128,17 @@ public class ChksumUtils {
         }
 
         if (fileHash == filehash) {
-            Console.WriteLine($"Duplicate files found: {pathToFile} with the hash {fileHash} is identical to {pathtofile} with the hash {filehash}");
-            return true;
-        } else {
-            return false;
+            Console.WriteLine("Duplicate files found:");
+            Console.WriteLine($"\toriginal\t{pathToFile}");
+            Console.WriteLine($"\tduplicate\t{pathtofile}\n");
+            doesExist = true;
         }
+        return doesExist;
     }
 
     private bool checkIfFileMovedAndUpdatePathToFile(string fileHash, string fileName, string pathToFile) {
         string pathtofile = string.Empty;
+        bool wasMoved = false;
 
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             connection.Open();
@@ -176,39 +168,12 @@ public class ChksumUtils {
                 command2.Parameters.AddWithValue("$filehash", fileHash);
                 command2.ExecuteNonQuery();
 
-                Console.WriteLine($"File moved: {fileName} was previously at {pathtofile} but is now at {pathToFile}");
-                return true;
-            } else {
-                return false;
+                Console.WriteLine("File moved:");
+                Console.WriteLine($"\tfrom\t{pathToFile}");
+                Console.WriteLine($"\tto  \t{pathtofile}\n");
+                wasMoved = true;
             }
-        }
-    }
-
-    private int getTotalFileCount() {
-        int totalFileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories).Length;
-        return totalFileCount - 1; // Remove the program from the totalFileCount
-    }
-
-    public void countAllMd5Checksums() {
-        int totalMD5FileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*.md5", SearchOption.AllDirectories).Length;
-        Console.WriteLine("There are " + totalMD5FileCount + " md5 checksums");
-    }
-
-    public void deleteAllMd5Checksums() {
-        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
-            Directory.SetCurrentDirectory(directory); // Set new root
-            if (getFileCount() >= 1) {
-                DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
-                FileInfo[] files = dir.GetFiles();
-                foreach (FileInfo file in files) {
-                    string fileName = file.Name;
-                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
-                    string checksumFile = Directory.GetCurrentDirectory() + "/" + fileNameWithoutExtension + ".md5";
-                    File.Delete(checksumFile);
-                    Console.WriteLine("Deleted " + checksumFile);
-                }
-            }
-            deleteAllMd5Checksums();
+            return wasMoved;
         }
     }
 
@@ -245,5 +210,9 @@ public class ChksumUtils {
             }
             compareChecksums();
         }
+    }
+
+    public void cleanup() {
+        File.Delete(libraryPath);
     }
 }

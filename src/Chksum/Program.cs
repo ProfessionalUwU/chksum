@@ -30,24 +30,6 @@ public class Program {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Checksum process finished");
                 break;
-            case "countmd5":
-                Console.WriteLine("Counting md5 checksum files.");
-                Console.ResetColor();
-
-                utils.countAllMd5Checksums();
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Finished counting all md5 checksum files.");
-                break;
-            case "deletemd5":
-                Console.WriteLine("Deleting all md5 checksum files.");
-                Console.ResetColor();
-
-                utils.deleteAllMd5Checksums();
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Deleted all md5 checksum files.");
-                break;
             case "compareChecksums":
                 Console.WriteLine("Comparing all md5 checksum files. If there is none, creating one.");
                 Console.ResetColor();
@@ -73,16 +55,13 @@ public class Program {
     static void PrintAvailableOptions() {
         String[] options = {
             "checksum",
-            "countmd5",
-            "deletemd5",
             "compareChecksums",
             "createDB",
             "help"
         };
 
         Console.ResetColor();
-        Console.WriteLine("usage: chksum [option]");
-        Console.WriteLine("Here is a list of all available options:");
+        Console.WriteLine("usage: chksum [option] \nHere is a list of all available options:");
         foreach (String option in options) {
             Console.WriteLine("\t" + option);
         }
