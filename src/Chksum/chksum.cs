@@ -208,7 +208,7 @@ public class ChksumUtils {
         }
     }
 
-    public void compareDatabases(string filePathToOtherDatabase) {
+    private List<string> getFilehashesOfOriginDatabase() {
         List<string> filehashesOfOriginDatabase = new List<string>();
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly")) {
             string filehash = string.Empty;
@@ -229,6 +229,10 @@ public class ChksumUtils {
             }
         }
 
+        return filehashesOfOriginDatabase;
+    }
+
+    private List<string> getFilehashesOfRemoteDatabase(string filePathToOtherDatabase) {
         List<string> filehashesOfRemoteDatabase = new List<string>();
         using (var connection = new SqliteConnection("Data Source=" + filePathToOtherDatabase + ";Mode=ReadOnly")) {
             string filehash = string.Empty;
@@ -249,7 +253,11 @@ public class ChksumUtils {
             }
         }
 
-        List<string> filesThatDoNotExistsInTheRemote = filehashesOfOriginDatabase.Except(filehashesOfRemoteDatabase).ToList();
+        return filehashesOfRemoteDatabase;
+    }
+
+    public void compareDatabases(string filePathToOtherDatabase) {
+        List<string> filesThatDoNotExistsInTheRemote = getFilehashesOfOriginDatabase().Except(getFilehashesOfRemoteDatabase(filePathToOtherDatabase)).ToList();
         //List<string> filesThatDoNotExistsInTheOrigin = filehashesOfRemoteDatabase.Except(filehashesOfOriginDatabase).ToList();
 
         foreach (string file in filesThatDoNotExistsInTheRemote) {
