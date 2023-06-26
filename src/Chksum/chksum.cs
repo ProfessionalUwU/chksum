@@ -208,9 +208,10 @@ public class ChksumUtils {
         }
     }
 
-    private List<string> getFilehashesOfOriginDatabase() {
-        List<string> filehashesOfOriginDatabase = new List<string>();
-        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly")) {
+    private List<string> getFilehashesFromDatabase(string connectionString) {
+        List<string> filehashesFromDatabase = new List<string>();
+
+        using (var connection = new SqliteConnection(connectionString)) {
             string filehash = string.Empty;
             
             connection.Open();
@@ -224,40 +225,16 @@ public class ChksumUtils {
             using (var reader = selectCommand.ExecuteReader()) {
                 while (reader.Read()) {
                     filehash = reader.GetString(0);
-                    filehashesOfOriginDatabase.Add(filehash);
+                    filehashesFromDatabase.Add(filehash);
                 }
             }
         }
 
-        return filehashesOfOriginDatabase;
-    }
-
-    private List<string> getFilehashesOfRemoteDatabase(string filePathToOtherDatabase) {
-        List<string> filehashesOfRemoteDatabase = new List<string>();
-        using (var connection = new SqliteConnection("Data Source=" + filePathToOtherDatabase + ";Mode=ReadOnly")) {
-            string filehash = string.Empty;
-            
-            connection.Open();
-
-            var selectCommand = connection.CreateCommand();
-            selectCommand.CommandText =
-            @"
-                Select filehash FROM file
-            ";
-
-            using (var reader = selectCommand.ExecuteReader()) {
-                while (reader.Read()) {
-                    filehash = reader.GetString(0);
-                    filehashesOfRemoteDatabase.Add(filehash);
-                }
-            }
-        }
-
-        return filehashesOfRemoteDatabase;
+        return filehashesFromDatabase;
     }
 
     public void compareDatabases(string filePathToOtherDatabase) {
-        List<string> filesThatDoNotExistsInTheRemote = getFilehashesOfOriginDatabase().Except(getFilehashesOfRemoteDatabase(filePathToOtherDatabase)).ToList();
+        List<string> filesThatDoNotExistsInTheRemote = getFilehashesFromDatabase("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly").Except(getFilehashesFromDatabase("Data Source=" + filePathToOtherDatabase + ";Mode=ReadOnly")).ToList();
         //List<string> filesThatDoNotExistsInTheOrigin = filehashesOfRemoteDatabase.Except(filehashesOfOriginDatabase).ToList();
 
         foreach (string file in filesThatDoNotExistsInTheRemote) {
