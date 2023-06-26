@@ -1,4 +1,6 @@
-﻿public class Program {
+using Chksum.Utils;
+
+public class Program {
     static void Main(string[] args) {
 
         Console.ForegroundColor = ConsoleColor.Red;
@@ -6,10 +8,16 @@
             Console.WriteLine("Please specify an option.");
             PrintAvailableOptions();
             return;
-        } else if (args.Length > 1) {
+        } else if (args.Length > 1 && args[0] != "compareDatabases") {
             Console.WriteLine("Too many options.");
             return;
         }
+
+        ChksumUtils utils = new ChksumUtils();
+
+        utils.getBaseDir();
+
+        utils.ExtractEmbeddedLibrary();
 
         Console.ForegroundColor = ConsoleColor.Green;
         switch (args[0]) {
@@ -17,34 +25,22 @@
                 Console.WriteLine("Starting the checksum process.");
                 Console.ResetColor();
 
-                Chksum.doTheThing();
+                utils.doTheThing();
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Checksum process finished");
                 break;
-            case "countmd5":
-                Console.WriteLine("Counting md5 checksum files.");
+            case "compareDatabases":
                 Console.ResetColor();
 
-                Chksum.countAllMd5Checksums();
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Finished counting all md5 checksum files.");
+                utils.compareDatabases(args[1]);
                 break;
-            case "deletemd5":
-                Console.WriteLine("Deleting all md5 checksum files.");
-                Console.ResetColor();
-
-                Chksum.deleteAllMd5Checksums();
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Deleted all md5 checksum files.");
+            case "createDB":
+                utils.initializeDB();
                 break;
-            case "compareChecksums":
-                Console.WriteLine("Comparing all md5 checksum files. If there is none, creating one.");
+            case "checkIfFileWasDeleted":
                 Console.ResetColor();
-
-                Chksum.compareChecksums();
+                utils.checkIfFileWasDeleted();
                 break;
             case "help":
                 PrintAvailableOptions();
@@ -55,20 +51,21 @@
                 PrintAvailableOptions();
                 break;
         }
+
+        utils.cleanup();
     }
 
     static void PrintAvailableOptions() {
         String[] options = {
             "checksum",
-            "countmd5",
-            "deletemd5",
             "compareChecksums",
+            "createDB",
+            "checkIfFileWasDeleted",
             "help"
         };
 
         Console.ResetColor();
-        Console.WriteLine("usage: chksum [option]");
-        Console.WriteLine("Here is a list of all available options:");
+        Console.WriteLine("usage: chksum [option] \nHere is a list of all available options:");
         foreach (String option in options) {
             Console.WriteLine("\t" + option);
         }
