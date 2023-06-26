@@ -174,6 +174,40 @@ public class ChksumUtils {
         }
     }
 
+    public void checkIfFileWasDeleted() {
+        string pathToFile = string.Empty;
+
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
+            connection.Open();
+
+            var selectCommand = connection.CreateCommand();
+            selectCommand.CommandText =
+            @"
+                Select pathtofile FROM file
+            ";
+
+            using (var reader = selectCommand.ExecuteReader()) {
+                while (reader.Read()) {
+                    pathToFile = reader.GetString(0);
+                    
+                    if (!File.Exists(pathToFile)) {
+                        var deleteCommand = connection.CreateCommand();
+                        deleteCommand.CommandText =
+                        @"
+                            DELETE FROM file
+                            WHERE pathtofile = $pathtofile
+                        ";
+                        deleteCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
+                        deleteCommand.ExecuteNonQuery();
+
+                        Console.WriteLine("File deleted:");
+                        Console.WriteLine($"\t{pathToFile}\n");
+                    }
+                }
+            }
+        }
+    }
+
     public void compareChecksums() { // reuse for database comparison
         foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
             Directory.SetCurrentDirectory(directory); // Set new root

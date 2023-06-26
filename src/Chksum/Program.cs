@@ -39,6 +39,10 @@ public class Program {
             case "createDB":
                 utils.initializeDB();
                 break;
+            case "checkIfFileWasDeleted":
+                Console.ResetColor();
+                utils.checkIfFileWasDeleted();
+                break;
             case "help":
                 PrintAvailableOptions();
                 break;
@@ -57,6 +61,7 @@ public class Program {
             "checksum",
             "compareChecksums",
             "createDB",
+            "checkIfFileWasDeleted",
             "help"
         };
 
