@@ -208,38 +208,72 @@ public class ChksumUtils {
         }
     }
 
-    public void compareChecksums() { // reuse for database comparison
-        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
-            Directory.SetCurrentDirectory(directory); // Set new root
-            if (getFileCount() >= 1) {
-                DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
-                FileInfo[] files = dir.GetFiles();
-                // files.ToList().ForEach(i => Console.WriteLine(i.ToString())); // Print all files in files array
-                foreach (FileInfo file in files) {
-                    string fileName = file.Name;
-                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
-                    string checksumFile = Directory.GetCurrentDirectory() + "/" + fileNameWithoutExtension + ".md5";
-                    string fileMd5Checksum = fileNameWithoutExtension + ".md5";
-                    if (File.Exists(fileMd5Checksum)) {
-                        string newFileChecksum = CalculateMD5(fileName) + "  " + fileName;
-                        string existingFileChecksum = File.ReadAllText(fileMd5Checksum);
-                        string newFileName = newFileChecksum.Substring(34);
-                        string existingFileName = existingFileChecksum.Substring(34);
-                        if (newFileChecksum.Equals(existingFileChecksum)) {
-                            Console.WriteLine(newFileName + " and " + existingFileName + " are the same.");
-                        } else {
-                            Console.WriteLine(newFileName + " and " + existingFileName + " are not the same.");
-                            Console.WriteLine("The checksum of " + newFileName + " is " + newFileChecksum);
-                            Console.WriteLine("The checksum of the already exting file " + existingFileName + " is " + existingFileChecksum);
-                            // TODO Tell the user to check which file is the correct one
-                        }
-                    } else {
-                        File.AppendAllText(checksumFile, CalculateMD5(fileName) + "  " + fileName);
-                        Console.WriteLine("Calculated checksum for: " + checksumFile);
+    public void compareDatabases(string filePathToOtherDatabase) {
+        List<string> filehashesOfOriginDatabase = new List<string>();
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly")) {
+            string filehash = string.Empty;
+            
+            connection.Open();
+
+            var selectCommand = connection.CreateCommand();
+            selectCommand.CommandText =
+            @"
+                Select filehash FROM file
+            ";
+
+            using (var reader = selectCommand.ExecuteReader()) {
+                while (reader.Read()) {
+                    filehash = reader.GetString(0);
+                    filehashesOfOriginDatabase.Add(filehash);
+                }
+            }
+        }
+
+        List<string> filehashesOfRemoteDatabase = new List<string>();
+        using (var connection = new SqliteConnection("Data Source=" + filePathToOtherDatabase + ";Mode=ReadOnly")) {
+            string filehash = string.Empty;
+            
+            connection.Open();
+
+            var selectCommand = connection.CreateCommand();
+            selectCommand.CommandText =
+            @"
+                Select filehash FROM file
+            ";
+
+            using (var reader = selectCommand.ExecuteReader()) {
+                while (reader.Read()) {
+                    filehash = reader.GetString(0);
+                    filehashesOfRemoteDatabase.Add(filehash);
+                }
+            }
+        }
+
+        List<string> filesThatDoNotExistsInTheRemote = filehashesOfOriginDatabase.Except(filehashesOfRemoteDatabase).ToList();
+        //List<string> filesThatDoNotExistsInTheOrigin = filehashesOfRemoteDatabase.Except(filehashesOfOriginDatabase).ToList();
+
+        foreach (string file in filesThatDoNotExistsInTheRemote) {
+            using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly")) {
+                string filename = string.Empty;
+                
+                connection.Open();
+
+                var selectCommand = connection.CreateCommand();
+                selectCommand.CommandText =
+                @"
+                    Select filename FROM file WHERE filehash = $filehash
+                ";
+                selectCommand.Parameters.AddWithValue("$filehash", file);
+
+                using (var reader = selectCommand.ExecuteReader()) {
+                    while (reader.Read()) {
+                        filename = reader.GetString(0);
+                        
+                        Console.WriteLine("File not found in remote:");
+                        Console.WriteLine($"\t{filename}\n");
                     }
                 }
             }
-            compareChecksums();
         }
     }
 

@@ -8,7 +8,7 @@ public class Program {
             Console.WriteLine("Please specify an option.");
             PrintAvailableOptions();
             return;
-        } else if (args.Length > 1) {
+        } else if (args.Length > 1 && args[0] != "compareDatabases") {
             Console.WriteLine("Too many options.");
             return;
         }
@@ -30,11 +30,10 @@ public class Program {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Checksum process finished");
                 break;
-            case "compareChecksums":
-                Console.WriteLine("Comparing all md5 checksum files. If there is none, creating one.");
+            case "compareDatabases":
                 Console.ResetColor();
 
-                utils.compareChecksums();
+                utils.compareDatabases(args[1]);
                 break;
             case "createDB":
                 utils.initializeDB();
