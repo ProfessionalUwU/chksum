@@ -84,7 +84,7 @@ public class ChksumUtils {
                     string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
                     string fileHash = CalculateMD5(fileName);
 
-                    if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExists(fileHash, fileName) == false) {
+                    if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
                         connection.Open();
 
                         var command = connection.CreateCommand();
@@ -104,12 +104,12 @@ public class ChksumUtils {
         }
     }
 
-    private bool checkIfFileAlreadyExists(string fileHash, string pathToFile) {
+    private bool checkIfFileAlreadyExistsInDatabase(string fileHash, string pathToFile) {
         string filehash = string.Empty;
         string pathtofile = string.Empty;
         bool doesExist = false;
 
-        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly")) {
             connection.Open();
 
             var command = connection.CreateCommand();
@@ -128,9 +128,6 @@ public class ChksumUtils {
         }
 
         if (fileHash == filehash) {
-            Console.WriteLine("Duplicate files found:");
-            Console.WriteLine($"\toriginal\t{pathToFile}");
-            Console.WriteLine($"\tduplicate\t{pathtofile}\n");
             doesExist = true;
         }
         return doesExist;
@@ -177,7 +174,7 @@ public class ChksumUtils {
         }
     }
 
-    public void compareChecksums() {
+    public void compareChecksums() { // reuse for database comparison
         foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) {
             Directory.SetCurrentDirectory(directory); // Set new root
             if (getFileCount() >= 1) {
