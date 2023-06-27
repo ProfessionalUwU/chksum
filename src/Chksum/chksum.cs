@@ -91,27 +91,29 @@ public class ChksumUtils {
 
     public void doTheThing() {
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
-            if (getTotalFileCount() >= 1) {
-                connection.Open();
-                Dictionary<string, string> fileHashes = CalculateChecksums(indexFiles());
-                foreach (var file in fileHashes) {
-                    string absolutePathToFile = file.Key;
-                    string fileName = Path.GetFileName(absolutePathToFile);
-                    string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                    string fileHash = file.Value;
-                    
-                    if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
-                        var command = connection.CreateCommand();
-                        command.CommandText =
-                        @"
-                            INSERT INTO file (filehash, filename, pathtofile)
-                            VALUES ($filehash, $filename, $pathtofile)
-                        ";
-                        command.Parameters.AddWithValue("$filehash", fileHash);
-                        command.Parameters.AddWithValue("$filename", fileName);
-                        command.Parameters.AddWithValue("$pathtofile", pathToFile);
-                        command.ExecuteNonQuery();
-                    }
+            if (getTotalFileCount() < 1) {
+                return;
+            }
+            connection.Open();
+            Dictionary<string, string> fileHashes = CalculateChecksums(indexFiles());
+            
+            foreach (var file in fileHashes) {
+                string absolutePathToFile = file.Key;
+                string fileName = Path.GetFileName(absolutePathToFile);
+                string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
+                string fileHash = file.Value;
+                
+                if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
+                    var command = connection.CreateCommand();
+                    command.CommandText =
+                    @"
+                        INSERT INTO file (filehash, filename, pathtofile)
+                        VALUES ($filehash, $filename, $pathtofile)
+                    ";
+                    command.Parameters.AddWithValue("$filehash", fileHash);
+                    command.Parameters.AddWithValue("$filename", fileName);
+                    command.Parameters.AddWithValue("$pathtofile", pathToFile);
+                    command.ExecuteNonQuery();
                 }
             }
         }
