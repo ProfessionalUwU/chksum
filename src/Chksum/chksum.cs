@@ -183,8 +183,8 @@ public class ChksumUtils {
                 Console.WriteLine($"\tto  \t{pathtofile}\n");
                 wasMoved = true;
             }
-            return wasMoved;
         }
+        return wasMoved;
     }
 
     public void checkIfFileWasDeleted() {
