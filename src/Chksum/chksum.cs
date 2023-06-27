@@ -203,19 +203,20 @@ public class ChksumUtils {
                 while (reader.Read()) {
                     pathToFile = reader.GetString(0);
                     
-                    if (!File.Exists(pathToFile)) {
-                        var deleteCommand = connection.CreateCommand();
-                        deleteCommand.CommandText =
-                        @"
-                            DELETE FROM file
-                            WHERE pathtofile = $pathtofile
-                        ";
-                        deleteCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
-                        deleteCommand.ExecuteNonQuery();
-
-                        Console.WriteLine("File deleted:");
-                        Console.WriteLine($"\t{pathToFile}\n");
+                    if (File.Exists(pathToFile)) {
+                        continue;
                     }
+                    var deleteCommand = connection.CreateCommand();
+                    deleteCommand.CommandText =
+                    @"
+                        DELETE FROM file
+                        WHERE pathtofile = $pathtofile
+                    ";
+                    deleteCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
+                    deleteCommand.ExecuteNonQuery();
+
+                    Console.WriteLine("File deleted:");
+                    Console.WriteLine($"\t{pathToFile}\n");
                 }
             }
         }
