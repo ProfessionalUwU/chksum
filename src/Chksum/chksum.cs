@@ -112,7 +112,7 @@ public class ChksumUtils {
                     string absolutePathToFile = file.Key;
                     string fileName = Path.GetFileName(absolutePathToFile);
                     string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                    string fileHash = "";
+                    string fileHash = file.Value;
                     
                     if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
                         connection.Open();
