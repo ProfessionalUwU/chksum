@@ -79,27 +79,41 @@ public class ChksumUtils {
         return checksums;
     }
 
+    private Dictionary<string, string> CalculateChecksums(string[] filenames) {
+        Dictionary<string, string> checksums = new Dictionary<string, string>();
+
+        Parallel.ForEach(filenames, (filename, state) => {
+            using (var md5 = MD5.Create()) {
+                using (var stream = File.OpenRead(filename)) {
+                    var hash = md5.ComputeHash(stream);
+                    var checksum = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+
+                    lock (checksums) {
+                        checksums.Add(filename, checksum);
+                    }
+                }
+            }
+        });
+
+        return checksums;
+    }
+
     public void doTheThing() {
         foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) 
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             Directory.SetCurrentDirectory(directory); // Set new root
             if (getFileCount() >= 1) {
                 string[] filenames = Directory.GetFiles(directory);
-                string[] fileHashes = CalculateMD5(filenames);
+                Dictionary<string, string> fileHashes = CalculateChecksums(filenames);
                 //DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
                 //FileInfo[] files = dir.GetFiles();
                 int index = 0;
-                foreach (string file in filenames) {
-                    index++;
-                    string absolutePathToFile = file;
+                foreach (var file in fileHashes) {
+                    string absolutePathToFile = file.Key;
+                    string fileName = Path.GetFileName(absolutePathToFile);
                     string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
                     string fileHash = "";
-                    if (index < fileHashes.Length) {
-                        //Console.WriteLine("Index at: " + index);
-                        fileHash = fileHashes.GetValue(index).ToString();
-                    }
                     
-                    string fileName = Path.GetFileName(absolutePathToFile);
                     if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
                         connection.Open();
 
