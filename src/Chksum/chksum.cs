@@ -1,13 +1,19 @@
 using System.Reflection;
 using System.Security.Cryptography;
-using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 namespace Chksum.Utils;
 public class ChksumUtils {
 
-    private int getFileCount() {
-        int fileCount = Directory.GetFiles(Directory.GetCurrentDirectory()).Length; // Get file count in current directory
-        return fileCount;
+    private int getTotalFileCount() {
+        int totalFileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories).Length;
+        return totalFileCount - 3; // Remove the program, datbase and library from the totalFileCount
+    }
+
+    private string[] indexFiles() {
+        string[] indexedFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories);
+        string[] filesToExclude = { "Chksum", "chksum.db", "libe_sqlite3.so" };
+        indexedFiles = indexedFiles.Where(file => !filesToExclude.Contains(Path.GetFileName(file))).ToArray();
+        return indexedFiles;
     }
 
     public string DatabaseRoot { get; set; } = string.Empty;
@@ -64,21 +70,6 @@ public class ChksumUtils {
         }
     }
 
-    private string[] CalculateMD5(string[] filenames) {
-        string[] checksums = new string[filenames.Length];
-        
-        Parallel.ForEach(filenames, (filename, state, index) => {
-            using (var md5 = MD5.Create()) {
-                using (var stream = File.OpenRead(filename)) {
-                    var hash = md5.ComputeHash(stream);
-                    checksums[index] = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-                }
-            }
-        });
-
-        return checksums;
-    }
-
     private Dictionary<string, string> CalculateChecksums(string[] filenames) {
         Dictionary<string, string> checksums = new Dictionary<string, string>();
 
@@ -99,15 +90,9 @@ public class ChksumUtils {
     }
 
     public void doTheThing() {
-        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) 
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
-            Directory.SetCurrentDirectory(directory); // Set new root
-            if (getFileCount() >= 1) {
-                string[] filenames = Directory.GetFiles(directory);
-                Dictionary<string, string> fileHashes = CalculateChecksums(filenames);
-                //DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
-                //FileInfo[] files = dir.GetFiles();
-                int index = 0;
+            if (getTotalFileCount() >= 1) {
+                Dictionary<string, string> fileHashes = CalculateChecksums(indexFiles());
                 foreach (var file in fileHashes) {
                     string absolutePathToFile = file.Key;
                     string fileName = Path.GetFileName(absolutePathToFile);
@@ -130,7 +115,6 @@ public class ChksumUtils {
                     }
                 }
             }
-            doTheThing();
         }
     }
 
