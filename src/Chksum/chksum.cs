@@ -92,6 +92,7 @@ public class ChksumUtils {
     public void doTheThing() {
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             if (getTotalFileCount() >= 1) {
+                connection.Open();
                 Dictionary<string, string> fileHashes = CalculateChecksums(indexFiles());
                 foreach (var file in fileHashes) {
                     string absolutePathToFile = file.Key;
@@ -100,8 +101,6 @@ public class ChksumUtils {
                     string fileHash = file.Value;
                     
                     if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
-                        connection.Open();
-
                         var command = connection.CreateCommand();
                         command.CommandText =
                         @"
