@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 namespace Chksum.Utils;
 public class ChksumUtils {
@@ -62,13 +64,19 @@ public class ChksumUtils {
         }
     }
 
-    private string CalculateMD5(string filename) {
-        using (var md5 = System.Security.Cryptography.MD5.Create()) {
-            using (var stream = File.OpenRead(filename)) {
-                var hash = md5.ComputeHash(stream);
-                return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+    private string[] CalculateMD5(string[] filenames) {
+        string[] checksums = new string[filenames.Length];
+        
+        Parallel.ForEach(filenames, (filename, state, index) => {
+            using (var md5 = MD5.Create()) {
+                using (var stream = File.OpenRead(filename)) {
+                    var hash = md5.ComputeHash(stream);
+                    checksums[index] = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                }
             }
-        }
+        });
+
+        return checksums;
     }
 
     public void doTheThing() {
@@ -76,14 +84,22 @@ public class ChksumUtils {
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             Directory.SetCurrentDirectory(directory); // Set new root
             if (getFileCount() >= 1) {
-                DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
-                FileInfo[] files = dir.GetFiles();
-                foreach (FileInfo file in files) {
-                    string fileName = file.Name;
-                    string absolutePathToFile = Path.GetFullPath(fileName);
+                string[] filenames = Directory.GetFiles(directory);
+                string[] fileHashes = CalculateMD5(filenames);
+                //DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+                //FileInfo[] files = dir.GetFiles();
+                int index = 0;
+                foreach (string file in filenames) {
+                    index++;
+                    string absolutePathToFile = file;
                     string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                    string fileHash = CalculateMD5(fileName);
-
+                    string fileHash = "";
+                    if (index < fileHashes.Length) {
+                        //Console.WriteLine("Index at: " + index);
+                        fileHash = fileHashes.GetValue(index).ToString();
+                    }
+                    
+                    string fileName = Path.GetFileName(absolutePathToFile);
                     if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
                         connection.Open();
 
