@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
@@ -71,7 +72,7 @@ public class ChksumUtils {
     }
 
     private Dictionary<string, string> CalculateChecksums(string[] filenames) {
-        Dictionary<string, string> checksums = new Dictionary<string, string>();
+        ConcurrentDictionary<string, string> checksums = new ConcurrentDictionary<string, string>();
 
         Parallel.ForEach(filenames, (filename, state) => {
             using (var md5 = MD5.Create()) {
@@ -80,13 +81,13 @@ public class ChksumUtils {
                     var checksum = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
 
                     lock (checksums) {
-                        checksums.Add(filename, checksum);
+                        checksums.TryAdd(filename, checksum);
                     }
                 }
             }
         });
 
-        return checksums;
+        return new Dictionary<string, string>(checksums);
     }
 
     public void doTheThing() {
