@@ -1,11 +1,20 @@
+using System.Collections.Concurrent;
 using System.Reflection;
+using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 namespace Chksum.Utils;
 public class ChksumUtils {
 
-    private int getFileCount() {
-        int fileCount = Directory.GetFiles(Directory.GetCurrentDirectory()).Length; // Get file count in current directory
-        return fileCount;
+    private int getTotalFileCount() {
+        int totalFileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories).Length;
+        return totalFileCount - 3; // Remove the program, datbase and library from the totalFileCount
+    }
+
+    private string[] indexFiles() {
+        string[] indexedFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories);
+        string[] filesToExclude = { "Chksum", "chksum.db", "libe_sqlite3.so" };
+        indexedFiles = indexedFiles.Where(file => !filesToExclude.Contains(Path.GetFileName(file))).ToArray();
+        return indexedFiles;
     }
 
     public string DatabaseRoot { get; set; } = string.Empty;
@@ -62,45 +71,52 @@ public class ChksumUtils {
         }
     }
 
-    private string CalculateMD5(string filename) {
-        using (var md5 = System.Security.Cryptography.MD5.Create()) {
-            using (var stream = File.OpenRead(filename)) {
-                var hash = md5.ComputeHash(stream);
-                return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-            }
-        }
-    }
+    private Dictionary<string, string> CalculateChecksums(string[] filenames) {
+        ConcurrentDictionary<string, string> checksums = new ConcurrentDictionary<string, string>();
 
-    public void doTheThing() {
-        foreach (var directory in Directory.GetDirectories(Directory.GetCurrentDirectory())) 
-        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
-            Directory.SetCurrentDirectory(directory); // Set new root
-            if (getFileCount() >= 1) {
-                DirectoryInfo dir = new DirectoryInfo(Directory.GetCurrentDirectory());
-                FileInfo[] files = dir.GetFiles();
-                foreach (FileInfo file in files) {
-                    string fileName = file.Name;
-                    string absolutePathToFile = Path.GetFullPath(fileName);
-                    string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                    string fileHash = CalculateMD5(fileName);
+        Parallel.ForEach(filenames, (filename, state) => {
+            using (var md5 = MD5.Create()) {
+                using (var stream = File.OpenRead(filename)) {
+                    var hash = md5.ComputeHash(stream);
+                    var checksum = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
 
-                    if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
-                        connection.Open();
-
-                        var command = connection.CreateCommand();
-                        command.CommandText =
-                        @"
-                            INSERT INTO file (filehash, filename, pathtofile)
-                            VALUES ($filehash, $filename, $pathtofile)
-                        ";
-                        command.Parameters.AddWithValue("$filehash", fileHash);
-                        command.Parameters.AddWithValue("$filename", fileName);
-                        command.Parameters.AddWithValue("$pathtofile", pathToFile);
-                        command.ExecuteNonQuery();
+                    lock (checksums) {
+                        checksums.TryAdd(filename, checksum);
                     }
                 }
             }
-            doTheThing();
+        });
+
+        return new Dictionary<string, string>(checksums);
+    }
+
+    public void doTheThing() {
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
+            if (getTotalFileCount() < 1) {
+                return;
+            }
+            connection.Open();
+            Dictionary<string, string> fileHashes = CalculateChecksums(indexFiles());
+            
+            foreach (var file in fileHashes) {
+                string absolutePathToFile = file.Key;
+                string fileName = Path.GetFileName(absolutePathToFile);
+                string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
+                string fileHash = file.Value;
+                
+                if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
+                    var command = connection.CreateCommand();
+                    command.CommandText =
+                    @"
+                        INSERT INTO file (filehash, filename, pathtofile)
+                        VALUES ($filehash, $filename, $pathtofile)
+                    ";
+                    command.Parameters.AddWithValue("$filehash", fileHash);
+                    command.Parameters.AddWithValue("$filename", fileName);
+                    command.Parameters.AddWithValue("$pathtofile", pathToFile);
+                    command.ExecuteNonQuery();
+                }
+            }
         }
     }
 
@@ -165,13 +181,13 @@ public class ChksumUtils {
                 command2.Parameters.AddWithValue("$filehash", fileHash);
                 command2.ExecuteNonQuery();
 
-                Console.WriteLine("File moved:");
+                Console.WriteLine("File moved or is a duplicate:");
                 Console.WriteLine($"\tfrom\t{pathToFile}");
                 Console.WriteLine($"\tto  \t{pathtofile}\n");
                 wasMoved = true;
             }
-            return wasMoved;
         }
+        return wasMoved;
     }
 
     public void checkIfFileWasDeleted() {
@@ -190,19 +206,20 @@ public class ChksumUtils {
                 while (reader.Read()) {
                     pathToFile = reader.GetString(0);
                     
-                    if (!File.Exists(pathToFile)) {
-                        var deleteCommand = connection.CreateCommand();
-                        deleteCommand.CommandText =
-                        @"
-                            DELETE FROM file
-                            WHERE pathtofile = $pathtofile
-                        ";
-                        deleteCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
-                        deleteCommand.ExecuteNonQuery();
-
-                        Console.WriteLine("File deleted:");
-                        Console.WriteLine($"\t{pathToFile}\n");
+                    if (File.Exists(pathToFile)) {
+                        continue;
                     }
+                    var deleteCommand = connection.CreateCommand();
+                    deleteCommand.CommandText =
+                    @"
+                        DELETE FROM file
+                        WHERE pathtofile = $pathtofile
+                    ";
+                    deleteCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
+                    deleteCommand.ExecuteNonQuery();
+
+                    Console.WriteLine("File deleted:");
+                    Console.WriteLine($"\t{pathToFile}\n");
                 }
             }
         }
@@ -235,7 +252,6 @@ public class ChksumUtils {
 
     public void compareDatabases(string filePathToOtherDatabase) {
         List<string> filesThatDoNotExistsInTheRemote = getFilehashesFromDatabase("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly").Except(getFilehashesFromDatabase("Data Source=" + filePathToOtherDatabase + ";Mode=ReadOnly")).ToList();
-        //List<string> filesThatDoNotExistsInTheOrigin = filehashesOfRemoteDatabase.Except(filehashesOfOriginDatabase).ToList();
 
         foreach (string file in filesThatDoNotExistsInTheRemote) {
             using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly")) {
