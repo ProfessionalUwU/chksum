@@ -44,3 +44,18 @@ Run executable
 ```bash
 ./Chksum
 ```
+
+## Enabling verbose output for troubleshooting
+
+1. Open the file called chksum.cs with your editor of choice.
+2. At the top there will be the logger configuration which you can change. Should look like this.
+```cs
+private ILogger logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Error)
+            .WriteTo.File("chksum.log")
+            .CreateLogger();
+```
+3. Change the minimum level of the logger to Verbose.
+4. Compile the program
+5. Profit. Now you will be able to see how what the program is doing in detail.
