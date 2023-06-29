@@ -181,7 +181,7 @@ public class ChksumUtils {
                 command2.Parameters.AddWithValue("$filehash", fileHash);
                 command2.ExecuteNonQuery();
 
-                Console.WriteLine("File moved:");
+                Console.WriteLine("File moved or is a duplicate:");
                 Console.WriteLine($"\tfrom\t{pathToFile}");
                 Console.WriteLine($"\tto  \t{pathtofile}\n");
                 wasMoved = true;
@@ -252,7 +252,6 @@ public class ChksumUtils {
 
     public void compareDatabases(string filePathToOtherDatabase) {
         List<string> filesThatDoNotExistsInTheRemote = getFilehashesFromDatabase("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly").Except(getFilehashesFromDatabase("Data Source=" + filePathToOtherDatabase + ";Mode=ReadOnly")).ToList();
-        //List<string> filesThatDoNotExistsInTheOrigin = filehashesOfRemoteDatabase.Except(filehashesOfOriginDatabase).ToList();
 
         foreach (string file in filesThatDoNotExistsInTheRemote) {
             using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadOnly")) {
