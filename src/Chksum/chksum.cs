@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Serilog;
 using Serilog.Events;
+using MurmurHash.Net;
 
 namespace Chksum.Utils;
 public class ChksumUtils {
@@ -107,6 +108,38 @@ public class ChksumUtils {
         return new Dictionary<string, string>(checksums);
     }
 
+    private Dictionary<string, uint> CalculateChecksumsWithMurmur(string[] filenames) {
+        ConcurrentDictionary<string, uint> checksums = new ConcurrentDictionary<string, uint>();
+
+        Parallel.ForEach(filenames, (filename, state) => {
+                using (var stream = File.OpenRead(filename)) {
+                    var hash = CalculateMurmurHash32(stream);
+                    lock (checksums) {
+                        checksums.TryAdd(filename, hash);
+                    }
+            }
+        });
+
+        logger.Debug("All files were checksummed");
+        return new Dictionary<string, uint>(checksums);
+    }
+
+    private uint CalculateMurmurHash32(Stream stream) {
+        const int bufferSize = 4096; // Adjust the buffer size as needed
+        const uint seed = 123456U;   // Adjust the seed value as needed
+        
+        var buffer = new byte[bufferSize];
+        uint hash = seed;
+
+        int bytesRead;
+
+        while ((bytesRead = stream.Read(buffer, 0, bufferSize)) > 0) {
+            hash = MurmurHash3.Hash32(buffer, seed: 123456U);
+        }
+        return hash;
+    }
+
+
     public void doTheThing() {
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             if (getTotalFileCount() < 1) {
@@ -114,13 +147,13 @@ public class ChksumUtils {
                 return;
             }
             connection.Open();
-            Dictionary<string, string> fileHashes = CalculateChecksums(indexFiles());
+            Dictionary<string, uint> fileHashes = CalculateChecksumsWithMurmur(indexFiles());
             
             foreach (var file in fileHashes) {
                 string absolutePathToFile = file.Key;
                 string fileName = Path.GetFileName(absolutePathToFile);
                 string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                string fileHash = file.Value;
+                var fileHash = file.Value;
                 
                 if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
                     var command = connection.CreateCommand();
@@ -140,7 +173,7 @@ public class ChksumUtils {
         }
     }
 
-    private bool checkIfFileAlreadyExistsInDatabase(string fileHash, string pathToFile) {
+    private bool checkIfFileAlreadyExistsInDatabase(uint fileHash, string pathToFile) {
         string filehash = string.Empty;
         string pathtofile = string.Empty;
         bool doesExist = false;
@@ -164,14 +197,14 @@ public class ChksumUtils {
             logger.Verbose("{pathToFile} with the hash {fileHash} was successfully loaded", pathToFile, fileHash);
         }
 
-        if (fileHash == filehash) {
+        if (fileHash.ToString() == filehash) {
             logger.Verbose("File with filehash {filehash} already exists in the database", filehash);
             doesExist = true;
         }
         return doesExist;
     }
 
-    private bool checkIfFileMovedAndUpdatePathToFile(string fileHash, string fileName, string pathToFile) {
+    private bool checkIfFileMovedAndUpdatePathToFile(uint fileHash, string fileName, string pathToFile) {
         string pathtofile = string.Empty;
         bool wasMoved = false;
 
