@@ -58,6 +58,7 @@ public class Program {
     static void PrintAvailableOptions() {
         String[] options = {
             "checksum",
+            "compareDatabases",
             "compareChecksums",
             "createDB",
             "checkIfFileWasDeleted",
