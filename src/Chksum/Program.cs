@@ -38,13 +38,14 @@ public class Program {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Checksum process finished");
                 break;
+            case "saveToSqlite":
+                Console.ResetColor();
+                utils.saveToSqlite();
+                break;
             case "compareDatabases":
                 Console.ResetColor();
 
                 utils.compareDatabases(args[1]);
-                break;
-            case "createDB":
-                utils.initializeDB();
                 break;
             case "checkIfFileWasDeleted":
                 Console.ResetColor();
@@ -68,7 +69,7 @@ public class Program {
             "checksum - MD5, Murmur and XxHash",
             "compareDatabases",
             "compareChecksums",
-            "createDB",
+            "saveToSqlite",
             "checkIfFileWasDeleted",
             "help"
         };
