@@ -109,12 +109,12 @@ public class ChksumUtils {
         return new Dictionary<string, string>(checksums);
     }
 
-    private Dictionary<string, uint> CalculateChecksumsWithMurmur(string[] filenames) {
+    private Dictionary<string, uint> CalculateChecksumsWithMurmur(string[] filenames, int userDefinedBufferSize) {
         ConcurrentDictionary<string, uint> checksums = new ConcurrentDictionary<string, uint>();
 
         Parallel.ForEach(filenames, (filename, state) => {
                 using (var stream = File.OpenRead(filename)) {
-                    var hash = CalculateMurmurHash32(stream);
+                    var hash = CalculateMurmurHash32(stream, userDefinedBufferSize);
                     lock (checksums) {
                         checksums.TryAdd(filename, hash);
                     }
@@ -125,8 +125,8 @@ public class ChksumUtils {
         return new Dictionary<string, uint>(checksums);
     }
 
-    private uint CalculateMurmurHash32(Stream stream) {
-        const int bufferSize = 4096;
+    private uint CalculateMurmurHash32(Stream stream, int userDefinedBufferSize) {
+        int bufferSize = userDefinedBufferSize;
         const uint seed = 123456U;
         
         var buffer = new byte[bufferSize];
@@ -141,12 +141,12 @@ public class ChksumUtils {
         return hash;
     }
 
-    private Dictionary<string, ulong> CalculateChecksumsWithXxHash3(string[] filenames) {
+    private Dictionary<string, ulong> CalculateChecksumsWithXxHash3(string[] filenames, int userDefinedBufferSize) {
         ConcurrentDictionary<string, ulong> checksums = new ConcurrentDictionary<string, ulong>();
 
         Parallel.ForEach(filenames, (filename, state) => {
             using (var stream = File.OpenRead(filename)) {
-                var hash = CalculateXxHash3(stream);
+                var hash = CalculateXxHash3(stream, userDefinedBufferSize);
                 checksums.TryAdd(filename, hash);
             }
         });
@@ -154,8 +154,8 @@ public class ChksumUtils {
         return new Dictionary<string, ulong>(checksums);
     }
 
-    private ulong CalculateXxHash3(Stream stream) {
-        const int bufferSize = 4096;
+    private ulong CalculateXxHash3(Stream stream, int userDefinedBufferSize) {
+        int bufferSize = userDefinedBufferSize;
         const ulong seed = 123456U;
 
         var buffer = new byte[bufferSize];
@@ -190,11 +190,11 @@ public class ChksumUtils {
                     fileHashes = fileHashesMD5.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
                     break;
                 case "Murmur":
-                    fileHashesMurmur = CalculateChecksumsWithMurmur(indexFiles());
+                    fileHashesMurmur = CalculateChecksumsWithMurmur(indexFiles(), bufferSize);
                     fileHashes = fileHashesMurmur.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
                     break;
                 case "XxHash":
-                    fileHashesXxHash3 = CalculateChecksumsWithXxHash3(indexFiles());
+                    fileHashesXxHash3 = CalculateChecksumsWithXxHash3(indexFiles(), bufferSize);
                     fileHashes = fileHashesXxHash3.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
                     break;
                 default:

@@ -8,7 +8,7 @@ public class Program {
             Console.WriteLine("Please specify an option.");
             PrintAvailableOptions();
             return;
-        } else if (args.Length > 1 && args[0] != "compareDatabases") {
+        } else if (args.Length > 3) {
             Console.WriteLine("Too many options.");
             return;
         }
@@ -25,7 +25,15 @@ public class Program {
                 Console.WriteLine("Starting the checksum process.");
                 Console.ResetColor();
 
-                utils.doTheThing();
+                try {
+                    int bufferSize = int.Parse(args[2]);
+                    utils.doTheThing(args[1], bufferSize);
+                }
+                catch (FormatException) {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Buffer was not a valid integer value. Please specify a valid integer value for the buffer size");
+                    Console.ResetColor();
+                }
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Checksum process finished");
@@ -57,7 +65,7 @@ public class Program {
 
     static void PrintAvailableOptions() {
         String[] options = {
-            "checksum",
+            "checksum - MD5, Murmur and XxHash",
             "compareDatabases",
             "compareChecksums",
             "createDB",
