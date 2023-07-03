@@ -4,6 +4,9 @@ using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Serilog;
 using Serilog.Events;
+using MurmurHash.Net;
+using Standart.Hash.xxHash;
+using StackExchange.Redis;
 
 namespace Chksum.Utils;
 public class ChksumUtils {
@@ -16,7 +19,7 @@ public class ChksumUtils {
     private int getTotalFileCount() {
         int totalFileCount = Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories).Length;
         logger.Debug("Total file count is {totalFileCount}", totalFileCount);
-        return totalFileCount - 3; // Remove the program, datbase and library from the totalFileCount
+        return totalFileCount - 4; // Remove the program, datbase, log and library from the totalFileCount
     }
 
     private string[] indexFiles() {
@@ -50,7 +53,7 @@ public class ChksumUtils {
         }
     }
 
-    public void initializeDB() {
+    private void initializeDB() {
         if (File.Exists("chksum.db")) {
             logger.Information("A database already exits");
             return;
@@ -71,6 +74,14 @@ public class ChksumUtils {
                 );
             ";
             command.ExecuteNonQuery();
+
+            var walCommand = connection.CreateCommand();
+            walCommand.CommandText =
+            @"
+                PRAGMA journal_mode = 'wal'
+            ";
+            walCommand.ExecuteNonQuery();
+
             logger.Information("Database was successfully created");
         }
     }
@@ -87,8 +98,18 @@ public class ChksumUtils {
         }
     }
 
+    private void UpdateProgressBar(int current, int total) {
+        int progress = (int)((double)current / total * 100);
+        string progressText = $"Progress: {progress}% [{current}/{total}]";
+
+        Console.Write("\r" + progressText.PadRight(Console.WindowWidth));
+    }
+
     private Dictionary<string, string> CalculateChecksums(string[] filenames) {
         ConcurrentDictionary<string, string> checksums = new ConcurrentDictionary<string, string>();
+
+        int totalFiles = filenames.Length;
+        int processedFiles = 0;
 
         Parallel.ForEach(filenames, (filename, state) => {
             using (var md5 = MD5.Create()) {
@@ -100,44 +121,170 @@ public class ChksumUtils {
                         checksums.TryAdd(filename, checksum);
                     }
                 }
+                Interlocked.Increment(ref processedFiles);
+                UpdateProgressBar(processedFiles, totalFiles);
             }
         });
 
-        logger.Debug("All files were checksummed");
         return new Dictionary<string, string>(checksums);
     }
 
-    public void doTheThing() {
-        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
-            if (getTotalFileCount() < 1) {
-                logger.Information("There were no files to checksum");
-                return;
+    private Dictionary<string, uint> CalculateChecksumsWithMurmur(string[] filenames, int userDefinedBufferSize) {
+        ConcurrentDictionary<string, uint> checksums = new ConcurrentDictionary<string, uint>();
+
+        int totalFiles = filenames.Length;
+        int processedFiles = 0;
+
+        Parallel.ForEach(filenames, (filename, state) => {
+                using (var stream = File.OpenRead(filename)) {
+                    var hash = CalculateMurmurHash32(stream, userDefinedBufferSize);
+                    lock (checksums) {
+                        checksums.TryAdd(filename, hash);
+                    }
+                Interlocked.Increment(ref processedFiles);
+                UpdateProgressBar(processedFiles, totalFiles);
             }
-            connection.Open();
-            Dictionary<string, string> fileHashes = CalculateChecksums(indexFiles());
-            
+        });
+
+        return new Dictionary<string, uint>(checksums);
+    }
+
+    private uint CalculateMurmurHash32(Stream stream, int userDefinedBufferSize) {
+        int bufferSize = userDefinedBufferSize;
+        const uint seed = 123456U;
+        
+        var buffer = new byte[bufferSize];
+        uint hash = seed;
+
+        int bytesRead;
+        ReadOnlySpan<byte> span = buffer;
+
+        while ((bytesRead = stream.Read(buffer, 0, bufferSize)) > 0) {
+            hash = MurmurHash3.Hash32(bytes: span, seed: 123456U);
+        }
+        return hash;
+    }
+
+    private Dictionary<string, ulong> CalculateChecksumsWithXxHash3(string[] filenames, int userDefinedBufferSize) {
+        ConcurrentDictionary<string, ulong> checksums = new ConcurrentDictionary<string, ulong>();
+
+        int totalFiles = filenames.Length;
+        int processedFiles = 0;
+
+        Parallel.ForEach(filenames, (filename, state) => {
+            using (var stream = File.OpenRead(filename)) {
+                var hash = CalculateXxHash3(stream, userDefinedBufferSize);
+                checksums.TryAdd(filename, hash);
+            }
+            Interlocked.Increment(ref processedFiles);
+            UpdateProgressBar(processedFiles, totalFiles);
+        });
+
+        return new Dictionary<string, ulong>(checksums);
+    }
+
+    private ulong CalculateXxHash3(Stream stream, int userDefinedBufferSize) {
+        int bufferSize = userDefinedBufferSize;
+        const ulong seed = 123456U;
+
+        var buffer = new byte[bufferSize];
+        ulong hash = seed;
+        
+        int bytesRead;
+
+        while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0) {
+            hash = xxHash3.ComputeHash(buffer, buffer.Length);
+        }
+
+        return hash;
+    }
+
+    public void doTheThing(string hashalgo, int bufferSize = 4096) {
+
+        ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
+        IDatabase db = redis.GetDatabase();
+
+        if (getTotalFileCount() < 1) {
+            logger.Information("There were no files to checksum");
+            return;
+        }
+
+        Dictionary<string, object> fileHashes;
+        Dictionary<string, ulong>  fileHashesXxHash3;
+        Dictionary<string, uint>  fileHashesMurmur;
+        Dictionary<string, string> fileHashesMD5;
+
+        switch (hashalgo) {
+            case "MD5":
+                fileHashesMD5 = CalculateChecksums(indexFiles());
+                fileHashes = fileHashesMD5.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
+                break;
+            case "Murmur":
+                fileHashesMurmur = CalculateChecksumsWithMurmur(indexFiles(), bufferSize);
+                fileHashes = fileHashesMurmur.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
+                break;
+            case "XxHash":
+                fileHashesXxHash3 = CalculateChecksumsWithXxHash3(indexFiles(), bufferSize);
+                fileHashes = fileHashesXxHash3.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
+                break;
+            default:
+                logger.Error("No valid hash algorithm was selected");
+                throw new Exception($"{hashalgo} is not a valid option. Valid options are MD5, Murmur and XxHash");
+        }
+
+        logger.Information("All files were checksummed");
+
+        HashEntry[] hashEntries = fileHashes.Select(kv => new HashEntry(kv.Key, kv.Value.ToString())).ToArray();
+        string hashKey = "fileHashes";
+        db.HashSet(hashKey, hashEntries);
+        logger.Information("Dictionary inserted into Redis.");
+    }
+
+    public void saveToSqlite() {
+
+        initializeDB();
+
+        ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
+        IDatabase db = redis.GetDatabase();
+
+        HashEntry[] fileHashes = db.HashGetAll("fileHashes");
+        logger.Information("Retrived all values from redis");
+
+        using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
             foreach (var file in fileHashes) {
-                string absolutePathToFile = file.Key;
-                string fileName = Path.GetFileName(absolutePathToFile);
-                string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile);
-                string fileHash = file.Value;
                 
-                if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) == false && checkIfFileAlreadyExistsInDatabase(fileHash, fileName) == false) {
-                    var command = connection.CreateCommand();
-                    command.CommandText =
+                var absolutePathToFile = file.Name.ToString();
+                string fileName = Path.GetFileName(absolutePathToFile.ToString());
+                string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile.ToString());
+                var fileHash = file.Value.ToString();
+
+                if (!checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) && !checkIfFileAlreadyExistsInDatabase(fileHash, fileName)) {
+                    connection.Open();
+                    var InsertCommand = connection.CreateCommand();
+                    InsertCommand.CommandText =
                     @"
                         INSERT INTO file (filehash, filename, pathtofile)
                         VALUES ($filehash, $filename, $pathtofile)
                     ";
-                    command.Parameters.AddWithValue("$filehash", fileHash);
-                    command.Parameters.AddWithValue("$filename", fileName);
-                    command.Parameters.AddWithValue("$pathtofile", pathToFile);
-                    command.ExecuteNonQuery();
+                    InsertCommand.Parameters.AddWithValue("$filehash", fileHash);
+                    InsertCommand.Parameters.AddWithValue("$filename", fileName);
+                    InsertCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
+                    InsertCommand.ExecuteNonQuery();
                     logger.Verbose("{fileName} which is located at {pathToFile} relative to the database with the hash {fileHash} was successfully inserted into the database", fileName, pathToFile, fileHash);
                 }
             }
-            logger.Information("All files were successfully written to the database");
         }
+        logger.Information("All filehashes were successfully inserted into the database");
+        
+        var keys = db.Execute("KEYS", "*");
+        if (keys == null) {
+            logger.Error("No values found in redis");
+            return;
+        }
+        foreach (var key in (RedisValue[])keys) {
+            db.KeyDelete((RedisKey)key.ToString());
+        }
+        logger.Information("Redis was successfully cleared of any remaining data");
     }
 
     private bool checkIfFileAlreadyExistsInDatabase(string fileHash, string pathToFile) {
@@ -203,9 +350,7 @@ public class ChksumUtils {
                 command2.Parameters.AddWithValue("$filehash", fileHash);
                 command2.ExecuteNonQuery();
 
-                Console.WriteLine("File moved or is a duplicate:");
-                Console.WriteLine($"\tfrom\t{pathToFile}");
-                Console.WriteLine($"\tto  \t{pathtofile}\n");
+                logger.Verbose("File moved or is a duplicate:\n\tfrom\t{pathToFile}\n\tto  \t{pathtofile}\n", pathToFile, pathtofile);
                 wasMoved = true;
             }
             logger.Verbose("{fileName} which is located at {pathToFile} relative to the database with the hash {fileHash} was successfully checked", fileName, pathToFile, fileHash);
@@ -214,6 +359,9 @@ public class ChksumUtils {
     }
 
     public void checkIfFileWasDeleted() {
+
+        saveToSqlite();
+
         string pathToFile = string.Empty;
 
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
@@ -242,9 +390,7 @@ public class ChksumUtils {
                     deleteCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
                     deleteCommand.ExecuteNonQuery();
 
-                    Console.WriteLine("File deleted:");
-                    Console.WriteLine($"\t{pathToFile}\n");
-                    logger.Verbose("File deleted: {pathToFile}", pathToFile);
+                    logger.Information("File deleted:\n\t{pathToFile}", pathToFile);
                 }
             }
             logger.Information("All deleted files were successfully removed from the database");
@@ -278,6 +424,9 @@ public class ChksumUtils {
     }
 
     public void compareDatabases(string filePathToOtherDatabase) {
+
+        saveToSqlite();
+
         if (!File.Exists(filePathToOtherDatabase)) {
             logger.Error("No database could be found at {filePathToOtherDatabase}", filePathToOtherDatabase);
             throw new Exception("No database could be found at " + filePathToOtherDatabase);
@@ -304,7 +453,7 @@ public class ChksumUtils {
                         
                         Console.WriteLine("File not found in remote:");
                         Console.WriteLine($"\t{filename}\n");
-                        logger.Verbose("{filename} could not be found in the remote database", filename);
+                        logger.Information("{filename} could not be found in the remote database", filename);
                     }
                 }
             }
@@ -314,6 +463,6 @@ public class ChksumUtils {
 
     public void cleanup() {
         File.Delete(libraryPath);
-        logger.Debug("Successfully deleted libe_sqlite3.so");
+        logger.Information("Successfully deleted libe_sqlite3.so");
     }
 }
