@@ -98,8 +98,18 @@ public class ChksumUtils {
         }
     }
 
+    private void UpdateProgressBar(int current, int total) {
+        int progress = (int)((double)current / total * 100);
+        string progressText = $"Progress: {progress}% [{current}/{total}]";
+
+        Console.Write("\r" + progressText.PadRight(Console.WindowWidth));
+    }
+
     private Dictionary<string, string> CalculateChecksums(string[] filenames) {
         ConcurrentDictionary<string, string> checksums = new ConcurrentDictionary<string, string>();
+
+        int totalFiles = filenames.Length;
+        int processedFiles = 0;
 
         Parallel.ForEach(filenames, (filename, state) => {
             using (var md5 = MD5.Create()) {
@@ -111,6 +121,8 @@ public class ChksumUtils {
                         checksums.TryAdd(filename, checksum);
                     }
                 }
+                Interlocked.Increment(ref processedFiles);
+                UpdateProgressBar(processedFiles, totalFiles);
             }
         });
 
@@ -120,12 +132,17 @@ public class ChksumUtils {
     private Dictionary<string, uint> CalculateChecksumsWithMurmur(string[] filenames, int userDefinedBufferSize) {
         ConcurrentDictionary<string, uint> checksums = new ConcurrentDictionary<string, uint>();
 
+        int totalFiles = filenames.Length;
+        int processedFiles = 0;
+
         Parallel.ForEach(filenames, (filename, state) => {
                 using (var stream = File.OpenRead(filename)) {
                     var hash = CalculateMurmurHash32(stream, userDefinedBufferSize);
                     lock (checksums) {
                         checksums.TryAdd(filename, hash);
                     }
+                Interlocked.Increment(ref processedFiles);
+                UpdateProgressBar(processedFiles, totalFiles);
             }
         });
 
@@ -151,11 +168,16 @@ public class ChksumUtils {
     private Dictionary<string, ulong> CalculateChecksumsWithXxHash3(string[] filenames, int userDefinedBufferSize) {
         ConcurrentDictionary<string, ulong> checksums = new ConcurrentDictionary<string, ulong>();
 
+        int totalFiles = filenames.Length;
+        int processedFiles = 0;
+
         Parallel.ForEach(filenames, (filename, state) => {
             using (var stream = File.OpenRead(filename)) {
                 var hash = CalculateXxHash3(stream, userDefinedBufferSize);
                 checksums.TryAdd(filename, hash);
             }
+            Interlocked.Increment(ref processedFiles);
+            UpdateProgressBar(processedFiles, totalFiles);
         });
 
         return new Dictionary<string, ulong>(checksums);
@@ -177,8 +199,7 @@ public class ChksumUtils {
         return hash;
     }
 
-
-    public void doTheThing(string hashalgo, int bufferSize) {
+    public void doTheThing(string hashalgo, int bufferSize = 4096) {
 
         ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
         IDatabase db = redis.GetDatabase();
@@ -372,9 +393,7 @@ public class ChksumUtils {
                     deleteCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
                     deleteCommand.ExecuteNonQuery();
 
-                    //Console.WriteLine("File deleted:");
-                    //Console.WriteLine($"\t{pathToFile}\n");
-                    logger.Information("File deleted: {pathToFile}", pathToFile);
+                    logger.Information("File deleted:\n\t{pathToFile}", pathToFile);
                 }
             }
             logger.Information("All deleted files were successfully removed from the database");

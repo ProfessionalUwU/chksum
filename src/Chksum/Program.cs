@@ -26,6 +26,9 @@ public class Program {
                 Console.ResetColor();
 
                 try {
+                    if (args[1] == "MD5") {
+                        utils.doTheThing(args[1]);
+                    }
                     int bufferSize = int.Parse(args[2]);
                     utils.doTheThing(args[1], bufferSize);
                 }
@@ -66,7 +69,7 @@ public class Program {
 
     static void PrintAvailableOptions() {
         String[] options = {
-            "checksum - MD5, Murmur and XxHash",
+            "checksum - MD5, Murmur and XxHash - Default buffer size is 4096",
             "compareDatabases",
             "compareChecksums",
             "saveToSqlite",
