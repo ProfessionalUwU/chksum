@@ -204,7 +204,6 @@ public class ChksumUtils {
         ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
         IDatabase db = redis.GetDatabase();
 
-
         if (getTotalFileCount() < 1) {
             logger.Information("There were no files to checksum");
             return;
@@ -351,9 +350,7 @@ public class ChksumUtils {
                 command2.Parameters.AddWithValue("$filehash", fileHash);
                 command2.ExecuteNonQuery();
 
-                //Console.WriteLine("File moved or is a duplicate:");
-                //Console.WriteLine($"\tfrom\t{pathToFile}");
-                //Console.WriteLine($"\tto  \t{pathtofile}\n");
+                logger.Verbose("File moved or is a duplicate:\n\tfrom\t{pathToFile}\n\tto  \t{pathtofile}\n", pathToFile, pathtofile);
                 wasMoved = true;
             }
             logger.Verbose("{fileName} which is located at {pathToFile} relative to the database with the hash {fileHash} was successfully checked", fileName, pathToFile, fileHash);
@@ -466,6 +463,6 @@ public class ChksumUtils {
 
     public void cleanup() {
         File.Delete(libraryPath);
-        logger.Debug("Successfully deleted libe_sqlite3.so");
+        logger.Information("Successfully deleted libe_sqlite3.so");
     }
 }
