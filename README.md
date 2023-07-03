@@ -2,6 +2,17 @@
 
 Checksums every file under the current directory
 
+## Runtime dependency
+
+If you use version 2.0.0 or above you will need redis!
+
+```bash
+pacman -S redis && systemctl start redis
+```
+
+With this redis will be downloaded and started. 
+Don't forget to enable the service if you don't want to start it every time you run the program.
+
 ## Run Locally
 
 Clone the project
