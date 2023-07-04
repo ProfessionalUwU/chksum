@@ -99,7 +99,7 @@ public class ChksumUtils {
     }
 
     private void UpdateProgressBar(int current, int total) {
-        int progress = (int)((double)current / total * 100);
+        var progress = (int)((double)current / total * 100);
         string progressText = $"Progress: {progress}% [{current}/{total}]";
 
         Console.Write("\r" + progressText.PadRight(Console.WindowWidth));
@@ -199,7 +199,7 @@ public class ChksumUtils {
         return hash;
     }
 
-    public void doTheThing(string hashalgo, int bufferSize = 4096) {
+    public void doTheThing(string hashAlgo, int bufferSize = 4096) {
 
         ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
         IDatabase db = redis.GetDatabase();
@@ -214,22 +214,22 @@ public class ChksumUtils {
         Dictionary<string, uint>  fileHashesMurmur;
         Dictionary<string, string> fileHashesMD5;
 
-        switch (hashalgo) {
-            case "MD5":
+        switch (hashAlgo) {
+            case "md5":
                 fileHashesMD5 = CalculateChecksums(indexFiles());
                 fileHashes = fileHashesMD5.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
                 break;
-            case "Murmur":
+            case "murmur":
                 fileHashesMurmur = CalculateChecksumsWithMurmur(indexFiles(), bufferSize);
                 fileHashes = fileHashesMurmur.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
                 break;
-            case "XxHash":
+            case "xxhash":
                 fileHashesXxHash3 = CalculateChecksumsWithXxHash3(indexFiles(), bufferSize);
                 fileHashes = fileHashesXxHash3.ToDictionary(kv => kv.Key, kv => (object)kv.Value);
                 break;
             default:
                 logger.Error("No valid hash algorithm was selected");
-                throw new Exception($"{hashalgo} is not a valid option. Valid options are MD5, Murmur and XxHash");
+                throw new Exception($"{hashAlgo} is not a valid option. Valid options are MD5, Murmur and XxHash");
         }
 
         logger.Information("All files were checksummed");
@@ -241,7 +241,6 @@ public class ChksumUtils {
     }
 
     public void saveToSqlite() {
-
         initializeDB();
 
         ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
@@ -251,27 +250,29 @@ public class ChksumUtils {
         logger.Information("Retrived all values from redis");
 
         using (var connection = new SqliteConnection("Data Source=" + DatabaseRoot + "chksum.db;Mode=ReadWrite")) {
+            connection.Open();
+
             foreach (var file in fileHashes) {
-                
                 var absolutePathToFile = file.Name.ToString();
                 string fileName = Path.GetFileName(absolutePathToFile.ToString());
                 string pathToFile = Path.GetRelativePath(DatabaseRoot, absolutePathToFile.ToString());
                 var fileHash = file.Value.ToString();
 
-                if (!checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) && !checkIfFileAlreadyExistsInDatabase(fileHash, fileName)) {
-                    connection.Open();
-                    var InsertCommand = connection.CreateCommand();
-                    InsertCommand.CommandText =
-                    @"
-                        INSERT INTO file (filehash, filename, pathtofile)
-                        VALUES ($filehash, $filename, $pathtofile)
-                    ";
-                    InsertCommand.Parameters.AddWithValue("$filehash", fileHash);
-                    InsertCommand.Parameters.AddWithValue("$filename", fileName);
-                    InsertCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
-                    InsertCommand.ExecuteNonQuery();
-                    logger.Verbose("{fileName} which is located at {pathToFile} relative to the database with the hash {fileHash} was successfully inserted into the database", fileName, pathToFile, fileHash);
+                if (checkIfFileMovedAndUpdatePathToFile(fileHash, fileName, pathToFile) || checkIfFileAlreadyExistsInDatabase(fileHash, fileName)) {
+                    continue;
                 }
+
+                var InsertCommand = connection.CreateCommand();
+                InsertCommand.CommandText =
+                @"
+                    INSERT INTO file (filehash, filename, pathtofile)
+                    VALUES ($filehash, $filename, $pathtofile)
+                ";
+                InsertCommand.Parameters.AddWithValue("$filehash", fileHash);
+                InsertCommand.Parameters.AddWithValue("$filename", fileName);
+                InsertCommand.Parameters.AddWithValue("$pathtofile", pathToFile);
+                InsertCommand.ExecuteNonQuery();
+                logger.Verbose("{fileName} which is located at {pathToFile} relative to the database with the hash {fileHash} was successfully inserted into the database", fileName, pathToFile, fileHash);
             }
         }
         logger.Information("All filehashes were successfully inserted into the database");
@@ -464,5 +465,6 @@ public class ChksumUtils {
     public void cleanup() {
         File.Delete(libraryPath);
         logger.Information("Successfully deleted libe_sqlite3.so");
+        Console.ResetColor();
     }
 }

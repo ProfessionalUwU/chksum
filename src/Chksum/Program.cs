@@ -19,20 +19,23 @@ public class Program {
 
         utils.ExtractEmbeddedLibrary();
 
+        var option = args[0].ToLower();
+
         Console.ForegroundColor = ConsoleColor.Green;
-        switch (args[0]) {
+        switch (option) {
             case "checksum":
                 Console.WriteLine("Starting the checksum process.");
                 Console.ResetColor();
-
-                try {
-                    if (args[1] == "MD5") {
-                        utils.doTheThing(args[1]);
-                    }
-                    int bufferSize = int.Parse(args[2]);
-                    utils.doTheThing(args[1], bufferSize);
+                var hashAlgo = args[1].ToLower();
+                
+                if (hashAlgo.Equals("md5")) {
+                    utils.doTheThing(hashAlgo);
+                    break;
                 }
-                catch (FormatException) {
+                try {
+                    var bufferSize = int.Parse(args[2]);
+                    utils.doTheThing(hashAlgo, bufferSize);
+                } catch (FormatException) {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("Buffer was not a valid integer value. Please specify a valid integer value for the buffer size");
                     Console.ResetColor();
@@ -41,16 +44,16 @@ public class Program {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("Checksum process finished");
                 break;
-            case "saveToSqlite":
+            case "savetosqlite":
                 Console.ResetColor();
                 utils.saveToSqlite();
                 break;
-            case "compareDatabases":
+            case "comparedatabases":
                 Console.ResetColor();
 
                 utils.compareDatabases(args[1]);
                 break;
-            case "checkIfFileWasDeleted":
+            case "checkiffilewasdeleted":
                 Console.ResetColor();
                 utils.checkIfFileWasDeleted();
                 break;
@@ -71,7 +74,6 @@ public class Program {
         String[] options = {
             "checksum - MD5, Murmur and XxHash - Default buffer size is 4096",
             "compareDatabases",
-            "compareChecksums",
             "saveToSqlite",
             "checkIfFileWasDeleted",
             "help"
@@ -79,7 +81,7 @@ public class Program {
 
         Console.ResetColor();
         Console.WriteLine("usage: chksum [option] \nHere is a list of all available options:");
-        foreach (String option in options) {
+        foreach (var option in options) {
             Console.WriteLine("\t" + option);
         }
     }
