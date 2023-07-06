@@ -1,3 +1,5 @@
+[![status-badge](https://woodpecker.hopeless-cloud.xyz/api/badges/ProfessionalUwU/chksum/status.svg)](https://woodpecker.hopeless-cloud.xyz/ProfessionalUwU/chksum)
+
 # chksum
 
 Checksums every file under the current directory
